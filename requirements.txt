@@ -5,4 +5,7 @@ openai
 python-dotenv
 numpy
 mss
-Pillow 
+Pillow
+google-genai>=1.2.0
+librosa>=0.10.0
+soundfile>=0.12.0 
