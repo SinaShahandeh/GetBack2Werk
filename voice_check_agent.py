@@ -29,7 +29,7 @@ from conversation_manager import ConversationManager
 load_dotenv()
 
 # Configure logging - enable debug for conversation history tracking
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -171,6 +171,11 @@ class VoiceCheckAgent:
                 
         elif message.message_type == 'error':
             logger.error(f"API error: {message.content}")
+            # Handle connection lost errors
+            if "Connection lost" in message.content or "WebSocket timeout" in message.content:
+                logger.warning("WebSocket connection lost - agent will disconnect and restart in next cycle")
+                self.should_disconnect = True
+                self.disconnect_reason = "websocket_timeout"
             
         elif message.message_type == 'session_update':
             # Handle session updates
@@ -197,7 +202,9 @@ class VoiceCheckAgent:
         if processed_audio is None:
             return  # Audio suppressed by feedback manager
         
-        await self.api_manager.send_audio(processed_audio)
+        # Pass the native sample rate to the API manager
+        sample_rate = getattr(self.audio_manager, 'native_rate', 16000)
+        await self.api_manager.send_audio(processed_audio, sample_rate)
     
     async def audio_input_loop(self):
         """Continuously capture audio input and send to API."""
@@ -242,7 +249,7 @@ class VoiceCheckAgent:
             message_task = asyncio.create_task(self.handle_api_messages())
             
             # Wait for either disconnection request or a timeout
-            timeout_duration = 120  # 2 minutes max for check-in
+            timeout_duration = 120  
             try:
                 await asyncio.wait_for(
                     asyncio.gather(audio_task, message_task, return_exceptions=True),

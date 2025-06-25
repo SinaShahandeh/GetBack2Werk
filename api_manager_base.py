@@ -39,7 +39,7 @@ class RealtimeAPIManager(ABC):
         pass
     
     @abstractmethod
-    async def send_audio(self, audio_data: bytes):
+    async def send_audio(self, audio_data: bytes, source_sample_rate: int = 24000):
         """Send audio data to the API."""
         pass
     

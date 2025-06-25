@@ -113,6 +113,7 @@ class ToolHandler:
         voice_agent.disconnect_reason = f"tool_disconnect: {reason}"
 
         # Send function result before disconnecting
+        logger.info(f"🔌 SENDING DISCONNECT TOOL RESPONSE TO API...")
         await voice_agent.api_manager.send_tool_response([{
             'name': 'Disconnect_Socket',
             'call_id': call_id,
@@ -121,11 +122,14 @@ class ToolHandler:
                 "message": "Socket will be disconnected"
             }
         }])
+        logger.info(f"🔌 DISCONNECT TOOL RESPONSE SENT TO API")
 
         # Wait for confirmation before disconnecting
-        print(f"🔌 WAITING 10 SECONDS FOR CONFIRMATION BEFORE DISCONNECTING")
-        logger.info(f"🔌 Waiting 10 seconds for final message before disconnect")
-        await asyncio.sleep(10)
+        print(f"🔌 WAITING 2 SECONDS FOR FINAL MESSAGE BEFORE DISCONNECTING")
+        logger.info(f"🔌 Waiting 2 seconds for final message before disconnect")
+        await asyncio.sleep(2)
+        
+        logger.info(f"🔌 INITIATING DISCONNECT FROM TOOL HANDLER")
         await voice_agent.disconnect()
 
     async def _handle_alarm_tool(self, args: dict, call_id: str, voice_agent):

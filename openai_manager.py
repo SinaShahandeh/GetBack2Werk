@@ -107,11 +107,13 @@ class OpenAIRealtimeManager(RealtimeAPIManager):
         await self.websocket.send(json.dumps(session_update))
         logger.info("Configured OpenAI Realtime session")
 
-    async def send_audio(self, audio_data: bytes):
+    async def send_audio(self, audio_data: bytes, source_sample_rate: int = 24000):
         """Send audio data to OpenAI."""
         if not self.websocket:
             return
             
+        # OpenAI expects 24kHz PCM16, so we may need to resample if input is different
+        # For now, we'll assume the audio is already in the correct format
         audio_event = {
             "type": "input_audio_buffer.append",
             "audio": base64.b64encode(audio_data).decode('utf-8')

@@ -16,8 +16,10 @@ class AudioManager:
     def __init__(self, feedback_strategy: str = "api_handled", noise_reduction_type: str = "far_field"):
         self.audio_format = pyaudio.paInt16
         self.channels = 1
-        self.rate = 24000
-        self.chunk = 512  # Smaller chunk to let echo canceller adapt faster
+        self.rate = 24000  # Will be updated to device native rate
+        self.chunk = 1024  # Increased for better speech recognition
+        self.native_rate = None  # Will store device's actual sample rate
+        self.send_sample_rate = 16000  # Gemini Live API requirement
         self.audio = pyaudio.PyAudio()
         self.input_stream = None
         self.output_stream = None
@@ -33,13 +35,36 @@ class AudioManager:
     def setup_streams(self):
         """Setup PyAudio input and output streams."""
         try:
-            self.input_stream = self.audio.open(
-                format=self.audio_format,
-                channels=self.channels,
-                rate=self.rate,
-                input=True,
-                frames_per_buffer=self.chunk
-            )
+            # Get the default input device's native sample rate
+            default_input_device = self.audio.get_default_input_device_info()
+            self.native_rate = int(default_input_device['defaultSampleRate'])
+            
+            logger.info(f"Default input device: {default_input_device['name']}")
+            logger.info(f"Native sample rate: {self.native_rate} Hz")
+            logger.info(f"Using sample rate: {self.send_sample_rate} Hz for input (Gemini requirement)")
+            
+            # Use 16kHz for input to match Gemini Live API requirement (like reference code)
+            try:
+                self.input_stream = self.audio.open(
+                    format=self.audio_format,
+                    channels=self.channels,
+                    rate=self.send_sample_rate,  # 16kHz
+                    input=True,
+                    frames_per_buffer=self.chunk
+                )
+                self.native_rate = self.send_sample_rate  # Update native rate to what we're actually using
+                logger.info(f"Successfully opened input stream at {self.send_sample_rate}Hz")
+            except Exception as e:
+                logger.warning(f"Failed to open stream at {self.send_sample_rate}Hz: {e}")
+                logger.info(f"Falling back to native rate: {self.native_rate}Hz")
+                # Fallback to native rate if 16kHz not supported
+                self.input_stream = self.audio.open(
+                    format=self.audio_format,
+                    channels=self.channels,
+                    rate=self.native_rate,
+                    input=True,
+                    frames_per_buffer=self.chunk
+                )
 
             self.output_stream = self.audio.open(
                 format=self.audio_format,
@@ -62,7 +87,7 @@ class AudioManager:
             self.mic_record_file = wave.open(filename, "wb")
             self.mic_record_file.setnchannels(self.channels)
             self.mic_record_file.setsampwidth(2)  # paInt16 -> 2 bytes
-            self.mic_record_file.setframerate(self.rate)
+            self.mic_record_file.setframerate(self.native_rate)  # Use native rate for recording
             logger.info(f"Mic audio will be recorded to {filename}")
             logger.info("Audio streams initialized")
 
